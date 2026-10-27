@@ -1,0 +1,13 @@
+{
+  "esquema": 2,
+  "id": "ad-ut2-estaciones-v3",
+  "version": 1,
+  "titulo": "UT2 · Histórico de las estaciones meteorológicas",
+  "proyecto": "estaciones",
+  "readme": "README.txt",
+  "resultado": { "patron": "ha movido ([^ \n]+) ficheros", "texto": "organizar movió $1" },
+  "ejercicios": [
+    { "carpeta": "ejercicio1", "principal": "main.py", "comprobaciones": "comprobaciones.py",
+      "archivos": [ { "nombre": "main.py", "editable": true } ] }
+  ]
+}
