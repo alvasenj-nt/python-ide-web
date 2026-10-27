@@ -8,11 +8,14 @@
 //   { tipo: 'ejecutar', id, carpeta, archivos, principal }
 //   { tipo: 'comprobar', id, carpeta, archivos, principal }   principal: módulo
 //       de unittest con las comprobaciones visibles del ejercicio
+//   { tipo: 'sintaxis', id, archivos }        compila sin ejecutar (revisión
+//       mientras se escribe)
 // Mensajes enviados:
 //   { tipo: 'listo', version, segundos } | { tipo: 'error-carga', mensaje }
 //   { tipo: 'salida', id, flujo: 'out' | 'err', texto }
 //   { tipo: 'fin', id, segundos, error: null | { tipo, mensaje, archivo, linea },
 //     resultados (solo al comprobar): [{ id, texto, ok, detalle }] }
+//   { tipo: 'sintaxis', id, error: null | { tipo, mensaje, archivo, linea } }
 
 let pyodide = null;
 let ejecucion = null;
@@ -102,6 +105,17 @@ def _lab_ejecutar(carpeta, archivos, principal):
         sys.stdout.flush()
         sys.path.remove(trabajo)
 
+# compile() detecta los errores de sintaxis y de sangría (SyntaxError,
+# IndentationError, TabError) sin ejecutar nada. Devuelve el primero.
+def _lab_sintaxis(archivos):
+    for nombre, texto in archivos.items():
+        try:
+            compile(texto, nombre, 'exec', dont_inherit=True)
+        except SyntaxError as e:
+            mensaje = traceback.format_exception_only(type(e), e)[-1].strip()
+            return {'tipo': type(e).__name__, 'mensaje': mensaje, 'archivo': nombre, 'linea': e.lineno}
+    return None
+
 def _lab_error(e, raiz, trabajo):
     corto = lambda ruta: os.path.relpath(ruta, raiz) if ruta and ruta.startswith(trabajo) else ruta
     te = traceback.TracebackException.from_exception(e)
@@ -180,8 +194,24 @@ function ejecutar({ tipo, id, carpeta, archivos, principal }) {
   self.postMessage({ tipo: 'fin', id, segundos: (performance.now() - t0) / 1000, error, resultados });
 }
 
+function sintaxis({ id, archivos }) {
+  const args = pyodide.toPy(archivos);
+  let error = null;
+  try {
+    const r = pyodide.globals.get('_lab_sintaxis')(args);
+    error = r ? r.toJs({ dict_converter: Object.fromEntries }) : null;
+    if (r && r.destroy) r.destroy();
+  } catch (e) {
+    error = null;
+  } finally {
+    args.destroy();
+  }
+  self.postMessage({ tipo: 'sintaxis', id, error });
+}
+
 self.onmessage = (ev) => {
   const m = ev.data;
   if (m.tipo === 'iniciar') iniciar(m.url);
   else if (m.tipo === 'ejecutar' || m.tipo === 'comprobar') ejecutar(m);
+  else if (m.tipo === 'sintaxis' && pyodide) sintaxis(m);
 };

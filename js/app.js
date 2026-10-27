@@ -151,7 +151,7 @@ function arrancarInterprete() {
   if (trabajador) trabajador.terminate();
   estado.listo = false;
   const t0 = performance.now();
-  trabajador = new Worker('js/trabajador.js?v=2');
+  trabajador = new Worker('js/trabajador.js?v=3');
   trabajador.onmessage = (ev) => recibir(ev.data);
   trabajador.onerror = (ev) => recibir({ tipo: 'error-carga', mensaje: ev.message || 'el worker no arrancó' });
   return new Promise((resolve) => {
@@ -163,6 +163,11 @@ function arrancarInterprete() {
 function recibir(m) {
   if (m.tipo === 'listo' || m.tipo === 'error-carga') {
     if (esperaListo) { const f = esperaListo; esperaListo = null; f(m); }
+    return;
+  }
+  if (m.tipo === 'sintaxis') {
+    // Durante una ejecución la vista Problems es de la ejecución
+    if (m.id === contadorRevisiones && !estado.ocupado) mostrarProblemas(m.error);
     return;
   }
   if (!ejecucionActual || m.id !== ejecucionActual.id) return;
@@ -343,7 +348,24 @@ function crearEditor() {
     if (!ARCHIVOS[estado.activo].soloLectura) {
       escribirAlmacen('archivo:' + estado.activo, editor.getValue());
     }
+    clearTimeout(temporizadorRevision);
+    temporizadorRevision = setTimeout(revisarSintaxis, 500);
   });
+}
+
+// Mientras se escribe, el intérprete compila los .py del ejercicio sin
+// ejecutarlos: errores de sintaxis y de sangría en la vista Problems.
+let temporizadorRevision = null;
+let contadorRevisiones = 0;
+function revisarSintaxis() {
+  const carpeta = carpetaDe(estado.activo);
+  if (!carpeta || !estado.listo || estado.ocupado) return;
+  const archivos = {};
+  Object.keys(ARCHIVOS)
+    .filter((n) => esPython(n) && carpetaDe(n) === carpeta && !ARCHIVOS[n].soloLectura)
+    .forEach((n) => { archivos[n] = estado.docs[n].getValue(); });
+  contadorRevisiones++;
+  trabajador.postMessage({ tipo: 'sintaxis', id: contadorRevisiones, archivos });
 }
 
 function abrirArchivo(nombre) {
@@ -357,6 +379,7 @@ function abrirArchivo(nombre) {
   document.querySelectorAll('.archivo').forEach((b) => b.classList.toggle('activo', b.dataset.archivo === nombre));
   actualizarEjecutar();
   pintarComprobaciones();
+  revisarSintaxis();
   editor.focus();
 }
 
@@ -876,6 +899,7 @@ async function iniciar() {
   estado.metricas.carga = segundos;
   registrar('carga', segundos.toFixed(1) + ' s (Pyodide ' + m.segundos.toFixed(1) + ' s)', umbral(segundos, 15, 45));
   estado.listo = true;
+  revisarSintaxis();
   bloquearBotones(false);
   setEstado('Entorno listo. Python ' + m.version + '.');
 }
