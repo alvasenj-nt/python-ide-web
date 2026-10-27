@@ -1,0 +1,17 @@
+{
+  "esquema": 1,
+  "id": "ad-ut2-estaciones",
+  "version": 1,
+  "titulo": "UT2 · Estaciones meteorológicas",
+  "proyecto": "estaciones",
+  "readme": "README.txt",
+  "resultado": { "patron": "(Datos conservados|Descargas sin cambios): ([^ \n]+)", "texto": "$1: $2" },
+  "ejercicios": [
+    { "carpeta": "ejercicio1", "principal": "main.py",
+      "archivos": [ { "nombre": "organizar.py", "editable": true },
+                    { "nombre": "main.py", "editable": false } ] },
+    { "carpeta": "ejercicio2", "principal": "main.py",
+      "archivos": [ { "nombre": "auditoria.py", "editable": true },
+                    { "nombre": "main.py", "editable": false } ] }
+  ]
+}
