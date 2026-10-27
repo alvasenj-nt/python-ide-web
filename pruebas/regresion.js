@@ -111,6 +111,18 @@ async function probarPractica(navegador, id) {
       comprobar(id, ej.carpeta + ': muestra el resultado', new RegExp(manifiesto.resultado.patron).test(salida),
         salida.trim().split('\n').pop());
     }
+    // Comprobaciones visibles (esquema 2): con el esqueleto deben ejecutarse
+    // todas y dar un resultado por cada test del módulo, sin error de carga
+    if (ej.comprobaciones) {
+      const fuente = fs.readFileSync(path.join(RAIZ, 'practicas', id, ej.carpeta, ej.comprobaciones), 'utf8');
+      const esperadas = (fuente.match(/^\s+def test_/gm) || []).length;
+      await p.click('#btn-comprobar');
+      const acaba = await esperarFin(p);
+      const filas = await p.$$eval('#lista-comprobaciones li', (lis) => lis.length);
+      const nota = await p.$eval('#nota-comprobaciones', (e) => e.textContent);
+      comprobar(id, ej.carpeta + ': Comprobar da un resultado por requisito', acaba && filas === esperadas && esperadas > 0,
+        filas + ' de ' + esperadas + '; ' + nota);
+    }
     await p.click('#btn-copiar-codigo');
     await new Promise((r) => setTimeout(r, 300));
     const copiado = await p.evaluate(() => navigator.clipboard.readText());

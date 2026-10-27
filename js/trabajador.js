@@ -6,10 +6,13 @@
 // Mensajes recibidos:
 //   { tipo: 'iniciar', url }                 carga Pyodide desde url
 //   { tipo: 'ejecutar', id, carpeta, archivos, principal }
+//   { tipo: 'comprobar', id, carpeta, archivos, principal }   principal: módulo
+//       de unittest con las comprobaciones visibles del ejercicio
 // Mensajes enviados:
 //   { tipo: 'listo', version, segundos } | { tipo: 'error-carga', mensaje }
 //   { tipo: 'salida', id, flujo: 'out' | 'err', texto }
-//   { tipo: 'fin', id, segundos, error: null | { tipo, mensaje, archivo, linea } }
+//   { tipo: 'fin', id, segundos, error: null | { tipo, mensaje, archivo, linea },
+//     resultados (solo al comprobar): [{ id, texto, ok, detalle }] }
 
 let pyodide = null;
 let ejecucion = null;
@@ -19,9 +22,10 @@ let ejecucion = null;
 // módulos del ejercicio se olvidan para que import cargue la versión nueva.
 // La traza solo muestra los marcos de los archivos del ejercicio.
 const EJECUTOR = `
-import os, runpy, shutil, sys, traceback
+import io, os, runpy, shutil, sys, traceback, unittest
+from contextlib import redirect_stderr, redirect_stdout
 
-def _lab_ejecutar(carpeta, archivos, principal):
+def _lab_preparar(carpeta, archivos):
     raiz = '/lab'
     if os.path.isdir(raiz):
         os.chdir('/')
@@ -34,6 +38,57 @@ def _lab_ejecutar(carpeta, archivos, principal):
         sys.modules.pop(nombre[:-3], None)
     os.chdir(trabajo)
     sys.path.insert(0, trabajo)
+    return raiz, trabajo
+
+# Las comprobaciones visibles son un módulo de unittest. Cada test es un
+# requisito: la primera línea de su docstring es el texto que ve el alumno y,
+# si no se cumple, el detalle es el mensaje de la aserción o la excepción con
+# la línea de su código. Lo que escriba el código del alumno no sale a la
+# consola.
+def _lab_comprobar(carpeta, archivos, modulo):
+    raiz, trabajo = _lab_preparar(carpeta, archivos)
+    salida = io.StringIO()
+    try:
+        with redirect_stdout(salida), redirect_stderr(salida):
+            suite = unittest.defaultTestLoader.loadTestsFromName(modulo[:-3])
+            resultados = []
+
+            class Resultado(unittest.TestResult):
+                def addSuccess(self, test):
+                    resultados.append(_lab_requisito(test, True, ''))
+
+                def addFailure(self, test, err):
+                    resultados.append(_lab_requisito(test, False, str(err[1]).strip()))
+
+                def addError(self, test, err):
+                    resultados.append(_lab_requisito(test, False, _lab_excepcion(err[1], trabajo, raiz)))
+
+                addExpectedFailure = addSuccess
+
+            suite.run(Resultado())
+        return {'error': None, 'resultados': resultados}
+    except SystemExit as e:
+        return {'error': {'tipo': 'SystemExit', 'mensaje': 'SystemExit: ' + str(e.code), 'archivo': None, 'linea': None},
+                'resultados': []}
+    except BaseException as e:
+        return {'error': _lab_error(e, raiz, trabajo), 'resultados': []}
+    finally:
+        sys.path.remove(trabajo)
+
+def _lab_requisito(test, ok, detalle):
+    doc = (test._testMethodDoc or test._testMethodName).strip().split('\\n')[0]
+    return {'id': test._testMethodName, 'texto': doc, 'ok': ok, 'detalle': detalle}
+
+def _lab_excepcion(e, trabajo, raiz):
+    propios = [m for m in traceback.extract_tb(e.__traceback__) if m.filename.startswith(trabajo)
+               and not os.path.basename(m.filename).startswith('comprobaciones')]
+    lugar = ''
+    if propios:
+        lugar = ' (%s, línea %d)' % (os.path.relpath(propios[-1].filename, raiz), propios[-1].lineno)
+    return '%s: %s%s' % (type(e).__name__, e, lugar)
+
+def _lab_ejecutar(carpeta, archivos, principal):
+    raiz, trabajo = _lab_preparar(carpeta, archivos)
     try:
         runpy.run_path(os.path.join(trabajo, principal), run_name='__main__')
         return None
@@ -100,25 +155,33 @@ async function iniciar(url) {
   }
 }
 
-function ejecutar({ id, carpeta, archivos, principal }) {
+function ejecutar({ tipo, id, carpeta, archivos, principal }) {
   ejecucion = id;
   const t0 = performance.now();
   let error = null;
+  let resultados;
   const args = pyodide.toPy(archivos);
   try {
-    const r = pyodide.globals.get('_lab_ejecutar')(carpeta, args, principal);
-    error = r ? r.toJs({ dict_converter: Object.fromEntries }) : null;
+    const funcion = tipo === 'comprobar' ? '_lab_comprobar' : '_lab_ejecutar';
+    const r = pyodide.globals.get(funcion)(carpeta, args, principal);
+    const datos = r ? r.toJs({ dict_converter: Object.fromEntries }) : null;
     if (r && r.destroy) r.destroy();
+    if (tipo === 'comprobar') {
+      error = datos.error;
+      resultados = datos.resultados;
+    } else {
+      error = datos;
+    }
   } catch (e) {
     error = { tipo: 'Interno', mensaje: String(e && e.message || e), archivo: null, linea: null };
   } finally {
     args.destroy();
   }
-  self.postMessage({ tipo: 'fin', id, segundos: (performance.now() - t0) / 1000, error });
+  self.postMessage({ tipo: 'fin', id, segundos: (performance.now() - t0) / 1000, error, resultados });
 }
 
 self.onmessage = (ev) => {
   const m = ev.data;
   if (m.tipo === 'iniciar') iniciar(m.url);
-  else if (m.tipo === 'ejecutar') ejecutar(m);
+  else if (m.tipo === 'ejecutar' || m.tipo === 'comprobar') ejecutar(m);
 };

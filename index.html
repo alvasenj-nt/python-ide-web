@@ -7,7 +7,7 @@
   <title>Laboratorio Python AD</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
-  <link rel="stylesheet" href="css/ide.css?v=1">
+  <link rel="stylesheet" href="css/ide.css?v=2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
@@ -25,6 +25,7 @@
 
   <nav class="barra-herramientas" aria-label="Acciones">
     <button id="btn-ejecutar" class="btn btn-run" disabled title="Ejecutar main.py (F5)"><span class="icono-run"></span>Ejecutar</button>
+    <button id="btn-comprobar" class="btn" disabled>Comprobar</button>
     <button id="btn-copiar-codigo" class="btn" disabled>Copiar código</button>
     <span class="separador solo-profesor"></span>
     <button id="btn-diagnostico" class="btn solo-profesor" disabled title="Batería automática de pruebas del entorno">Diagnóstico automático</button>
@@ -51,6 +52,7 @@
       <div class="pestanas" role="tablist">
         <button class="pestana" data-panel="consola" role="tab">Console</button>
         <button class="pestana" data-panel="problemas" role="tab">Problems <span id="contador-problemas"></span></button>
+        <button class="pestana" data-panel="comprobaciones" role="tab">Comprobaciones <span id="contador-comprobaciones"></span></button>
         <button class="pestana solo-profesor" data-panel="diagnostico" role="tab">Diagnóstico</button>
       </div>
 
@@ -67,6 +69,11 @@
           <thead><tr><th>Descripción</th><th>Recurso</th><th>Línea</th></tr></thead>
           <tbody id="lista-problemas"></tbody>
         </table>
+      </div>
+
+      <div class="contenido-panel" id="panel-comprobaciones">
+        <p id="nota-comprobaciones" class="nota-panel">Abre un archivo de un ejercicio y pulsa Comprobar.</p>
+        <ul id="lista-comprobaciones" class="lista-comprobaciones"></ul>
       </div>
 
       <div class="contenido-panel solo-profesor" id="panel-diagnostico">
@@ -86,6 +93,6 @@
     <span id="cronometro"></span>
   </footer>
 
-  <script src="js/app.js?v=1"></script>
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>

@@ -20,7 +20,8 @@ const ID_PRACTICA = PARAMETROS.get('p');
 const RE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RE_CARPETA = /^[a-z0-9_]+$/;
 const RE_MODULO = /^[a-z_][a-z0-9_]*\.py$/;
-const ESQUEMA_MAXIMO = 1;
+// Esquema 2: comprobaciones visibles opcionales por ejercicio
+const ESQUEMA_MAXIMO = 2;
 
 const PYTHON = 'python';
 // Se rellenan a partir del manifiesto. La clave de cada archivo incluye la
@@ -51,6 +52,8 @@ const PRUEBAS = [
 const estado = {
   plantillas: {},
   docs: {},
+  // Comprobaciones visibles por ejercicio: { fuente, resultados, error }
+  comprobaciones: {},
   activo: null,
   ocupado: false,
   listo: false,
@@ -59,7 +62,8 @@ const estado = {
   marcasError: [],
   resultados: {},
   // Métricas que viajan en la entrega sin intervención del alumno
-  metricas: { carga: null, ejecuciones: [], conErrores: 0, ultimaEjecucion: 'sin ejecutar' },
+  metricas: { carga: null, ejecuciones: [], conErrores: 0, ultimaEjecucion: 'sin ejecutar', comprobaciones: 0,
+    ultimaComprobacion: 'sin comprobar' },
 };
 
 let editor;
@@ -106,6 +110,11 @@ function actualizarEjecutar() {
   $('btn-ejecutar').title = carpeta
     ? 'Ejecutar el ' + principalDe(carpeta) + ' de ' + carpeta + ' (F5 o Ctrl+F11)'
     : 'Abre un archivo de un ejercicio para ejecutarlo';
+  const ej = carpeta ? ejercicioDe(carpeta) : null;
+  $('btn-comprobar').disabled = estado.ocupado || !estado.listo || !ej || !ej.comprobaciones;
+  $('btn-comprobar').title = ej && ej.comprobaciones
+    ? 'Comprobar los requisitos de ' + carpeta
+    : 'Este ejercicio no tiene comprobaciones automáticas';
   $('btn-copiar-codigo').disabled = !carpeta;
   $('btn-copiar-codigo').title = carpeta
     ? 'Copiar el código de ' + carpeta + ' para pegarlo en el cuestionario'
@@ -142,7 +151,7 @@ function arrancarInterprete() {
   if (trabajador) trabajador.terminate();
   estado.listo = false;
   const t0 = performance.now();
-  trabajador = new Worker('js/trabajador.js?v=1');
+  trabajador = new Worker('js/trabajador.js?v=2');
   trabajador.onmessage = (ev) => recibir(ev.data);
   trabajador.onerror = (ev) => recibir({ tipo: 'error-carga', mensaje: ev.message || 'el worker no arrancó' });
   return new Promise((resolve) => {
@@ -163,17 +172,19 @@ function recibir(m) {
   } else if (m.tipo === 'fin') {
     const e = ejecucionActual;
     ejecucionActual = null;
-    e.resolver({ salida: e.salida.out, errores: e.salida.err, segundos: m.segundos, error: m.error, terminada: false });
+    e.resolver({ salida: e.salida.out, errores: e.salida.err, segundos: m.segundos, error: m.error || null,
+      resultados: m.resultados || [], terminada: false });
   }
 }
 
-// Ejecuta principal dentro de la carpeta con los archivos dados. Devuelve
-// { salida, errores, segundos, error, terminada }.
-function ejecutar(carpeta, archivos, principal, alEscribir = () => {}) {
+// Ejecuta principal dentro de la carpeta con los archivos dados (tipo
+// 'ejecutar') o pasa el módulo de comprobaciones principal (tipo 'comprobar').
+// Devuelve { salida, errores, segundos, error, resultados, terminada }.
+function ejecutar(carpeta, archivos, principal, alEscribir = () => {}, tipo = 'ejecutar') {
   contadorEjecuciones++;
   return new Promise((resolver) => {
     ejecucionActual = { id: contadorEjecuciones, salida: { out: '', err: '' }, alEscribir, resolver };
-    trabajador.postMessage({ tipo: 'ejecutar', id: contadorEjecuciones, carpeta, archivos, principal });
+    trabajador.postMessage({ tipo, id: contadorEjecuciones, carpeta, archivos, principal });
   });
 }
 
@@ -185,7 +196,7 @@ async function terminarEjecucion() {
   ejecucionActual = null;
   setEstado('Deteniendo la ejecución y reiniciando el intérprete...');
   const reinicio = arrancarInterprete();
-  e.resolver({ salida: e.salida.out, errores: e.salida.err, segundos: 0, error: null, terminada: true });
+  e.resolver({ salida: e.salida.out, errores: e.salida.err, segundos: 0, error: null, resultados: [], terminada: true });
   const m = await reinicio;
   estado.listo = m.tipo === 'listo';
   bloquearBotones(estado.ocupado);
@@ -209,6 +220,8 @@ function validarManifiesto(m) {
     if (!RE_CARPETA.test(ej.carpeta) || !RE_MODULO.test(ej.principal)) fallo('carpeta o programa principal no válidos');
     if (!ej.archivos.some((a) => a.nombre === ej.principal)) fallo(ej.carpeta + ' no contiene su programa principal');
     ej.archivos.forEach((a) => { if (!RE_MODULO.test(a.nombre)) fallo('archivo no válido: ' + a.nombre); });
+    if (ej.comprobaciones !== undefined && (m.esquema < 2 || !RE_MODULO.test(ej.comprobaciones)
+      || ej.archivos.some((a) => a.nombre === ej.comprobaciones))) fallo('comprobaciones no válidas en ' + ej.carpeta);
   });
   return m;
 }
@@ -237,7 +250,8 @@ async function cargarPractica() {
   document.querySelector('.subtitulo').textContent = PRACTICA.titulo;
 }
 
-const principalDe = (carpeta) => PRACTICA.ejercicios.find((ej) => ej.carpeta === carpeta).principal;
+const ejercicioDe = (carpeta) => (PRACTICA ? PRACTICA.ejercicios.find((ej) => ej.carpeta === carpeta) : null);
+const principalDe = (carpeta) => ejercicioDe(carpeta).principal;
 
 function construirExplorador() {
   const arbol = document.querySelector('.arbol');
@@ -342,6 +356,7 @@ function abrirArchivo(nombre) {
   $('pestana-editor').textContent = nombre + (ARCHIVOS[nombre].soloLectura ? ' (solo lectura)' : '');
   document.querySelectorAll('.archivo').forEach((b) => b.classList.toggle('activo', b.dataset.archivo === nombre));
   actualizarEjecutar();
+  pintarComprobaciones();
   editor.focus();
 }
 
@@ -461,6 +476,110 @@ async function accionEjecutar() {
       return;
     }
     setEstado(principalDe(carpeta) + ' terminado en ' + e.segundos.toFixed(1) + ' s');
+  });
+}
+
+// ---------- comprobaciones ----------
+
+// Las comprobaciones visibles son un módulo de unittest publicado junto al
+// ejercicio (campo comprobaciones del manifiesto) que no aparece en el
+// explorador: el alumno ve el texto de cada requisito y si lo cumple.
+async function fuenteComprobaciones(carpeta) {
+  const ej = ejercicioDe(carpeta);
+  if (!estado.comprobaciones[carpeta]) {
+    const r = await fetch('practicas/' + ID_PRACTICA + '/' + carpeta + '/' + ej.comprobaciones, { cache: 'no-cache' });
+    if (!r.ok) throw new Error('no se pueden leer las comprobaciones (' + r.status + ')');
+    estado.comprobaciones[carpeta] = { fuente: await r.text(), resultados: null, error: null };
+  }
+  return estado.comprobaciones[carpeta];
+}
+
+function pintarComprobaciones() {
+  const carpeta = carpetaDe(estado.activo);
+  const ej = carpeta ? ejercicioDe(carpeta) : null;
+  const lista = $('lista-comprobaciones');
+  const nota = $('nota-comprobaciones');
+  lista.innerHTML = '';
+  $('contador-comprobaciones').textContent = '';
+  if (!ej || !ej.comprobaciones) {
+    nota.textContent = carpeta ? 'Este ejercicio no tiene comprobaciones automáticas.'
+      : 'Abre un archivo de un ejercicio y pulsa Comprobar.';
+    return;
+  }
+  const datos = estado.comprobaciones[carpeta];
+  if (!datos || (!datos.resultados && !datos.error)) {
+    nota.textContent = 'Pulsa Comprobar para revisar los requisitos de ' + carpeta + '.';
+    return;
+  }
+  if (datos.error) {
+    nota.textContent = 'No se ha podido comprobar: tu código no se carga (' + datos.error.mensaje
+      + (datos.error.linea ? ', ' + datos.error.archivo + ' línea ' + datos.error.linea : '')
+      + '). Revisa las vistas Console y Problems.';
+    return;
+  }
+  const bien = datos.resultados.filter((r) => r.ok).length;
+  $('contador-comprobaciones').textContent = '(' + bien + '/' + datos.resultados.length + ')';
+  nota.textContent = 'Que se cumplan todas no garantiza la nota máxima: la corrección revisa más casos.';
+  datos.resultados.forEach((r) => {
+    const li = document.createElement('li');
+    li.className = r.ok ? 'cumple' : 'no-cumple';
+    const texto = document.createElement('span');
+    texto.className = 'texto-comprobacion';
+    texto.textContent = r.texto;
+    if (!r.ok && r.detalle) {
+      const detalle = document.createElement('span');
+      detalle.className = 'detalle-comprobacion';
+      detalle.textContent = r.detalle;
+      texto.appendChild(detalle);
+    }
+    const marca = document.createElement('span');
+    marca.className = 'estado-comprobacion';
+    marca.textContent = r.ok ? 'Cumple' : 'Pendiente';
+    li.append(texto, marca);
+    lista.appendChild(li);
+  });
+}
+
+async function accionComprobar() {
+  const carpeta = carpetaDe(estado.activo);
+  const ej = carpeta ? ejercicioDe(carpeta) : null;
+  if (!ej || !ej.comprobaciones) return;
+  await conBloqueo(async () => {
+    mostrarPanel('comprobaciones');
+    mostrarProblemas(null);
+    setEstado('Comprobando ' + carpeta + '...');
+    const datos = await fuenteComprobaciones(carpeta);
+    const archivos = Object.assign(archivosEjercicio(carpeta), { [ej.comprobaciones]: datos.fuente });
+    $('btn-terminar').disabled = false;
+    $('consola-visible').textContent = '';
+    const aviso = setTimeout(() => setEstado('La comprobación lleva más de 20 s. Si no avanza, pulsa Terminar en la vista Console.'), 20000);
+    let e;
+    try {
+      e = await ejecutar(carpeta, archivos, ej.comprobaciones, escribirConsola, 'comprobar');
+    } finally {
+      clearTimeout(aviso);
+      $('btn-terminar').disabled = true;
+    }
+    datos.error = e.error;
+    datos.resultados = e.error || e.terminada ? null : e.resultados;
+    estado.metricas.comprobaciones++;
+    if (e.terminada) {
+      estado.metricas.ultimaComprobacion = carpeta + ' detenida con Terminar';
+      pintarComprobaciones();
+      setEstado('Comprobación detenida con Terminar: revisa si tu código tiene un bucle que no acaba.');
+      return;
+    }
+    if (e.error) {
+      estado.metricas.ultimaComprobacion = carpeta + ' ' + e.error.tipo;
+      mostrarProblemas(e.error);
+      pintarComprobaciones();
+      setEstado('No se ha podido comprobar ' + carpeta + ': ' + e.error.mensaje);
+      return;
+    }
+    const bien = e.resultados.filter((r) => r.ok).length;
+    estado.metricas.ultimaComprobacion = carpeta + ' ' + bien + '/' + e.resultados.length;
+    pintarComprobaciones();
+    setEstado(carpeta + ': se cumplen ' + bien + ' de ' + e.resultados.length + ' comprobaciones.');
   });
 }
 
@@ -657,6 +776,8 @@ function informeEntorno() {
     'ejecuciones=' + m.ejecuciones.length,
     'ejecuciones_con_error=' + m.conErrores,
     'ultima_ejecucion=' + m.ultimaEjecucion,
+    'comprobaciones=' + m.comprobaciones,
+    'ultima_comprobacion=' + m.ultimaComprobacion,
   ].join('\n') + '\n';
 }
 
@@ -684,6 +805,7 @@ function restaurarPlantilla() {
 function enlazarUI() {
   document.querySelectorAll('.pestana').forEach((p) => p.addEventListener('click', () => mostrarPanel(p.dataset.panel)));
   $('btn-ejecutar').addEventListener('click', accionEjecutar);
+  $('btn-comprobar').addEventListener('click', accionComprobar);
   $('btn-diagnostico').addEventListener('click', accionDiagnostico);
   $('btn-copiar').addEventListener('click', copiarInforme);
   $('btn-descargar').addEventListener('click', descargarEntrega);

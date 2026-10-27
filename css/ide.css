@@ -9,6 +9,7 @@
   --error: #c62828;
   --error-suave: #fdecea;
   --aviso: #b26a00;
+  --bien: #2e7d32;
   --mono: Consolas, "DejaVu Sans Mono", "Courier New", monospace;
 }
 
@@ -254,3 +255,22 @@ body:not(.entrega-zip) .solo-zip { display: none !important; }
 .salida-error { color: var(--error); }
 .cm-s-eclipse span.cm-builtin { color: #7f0055; }
 .cm-s-eclipse span.cm-def { color: #000; font-weight: bold; }
+
+.nota-panel { margin: 4px 0 6px; color: var(--texto-suave); }
+.lista-comprobaciones { list-style: none; margin: 0; padding: 0; }
+.lista-comprobaciones li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px solid #eee; }
+.lista-comprobaciones li::before {
+  content: "";
+  flex: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #c9c9c9;
+  transform: translateY(1px);
+}
+.lista-comprobaciones li.cumple::before { background: var(--bien); }
+.lista-comprobaciones li.no-cumple::before { background: var(--error); }
+.detalle-comprobacion { display: block; margin-top: 2px; font-family: var(--mono); font-size: 12px; color: var(--texto-suave);
+  white-space: pre-wrap; word-break: break-word; }
+.lista-comprobaciones .estado-comprobacion { margin-left: auto; color: var(--texto-suave); white-space: nowrap; }
+.lista-comprobaciones .cumple .estado-comprobacion { color: var(--bien); }
+.lista-comprobaciones .no-cumple .estado-comprobacion { color: var(--error); }
