@@ -324,7 +324,7 @@ function crearEditor() {
   editor = CodeMirror($('contenedor-editor'), {
     value: estado.docs[estado.activo],
     mode: ARCHIVOS[estado.activo].modo,
-    theme: 'eclipse',
+    theme: 'vscode',
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,

@@ -274,3 +274,85 @@ body:not(.entrega-zip) .solo-zip { display: none !important; }
 .lista-comprobaciones .estado-comprobacion { margin-left: auto; color: var(--texto-suave); white-space: nowrap; }
 .lista-comprobaciones .cumple .estado-comprobacion { color: var(--bien); }
 .lista-comprobaciones .no-cumple .estado-comprobacion { color: var(--error); }
+
+/* ---------- Tema VS Code (Dark Modern) ----------
+   Interfaz y coloreado de Python como el tema oscuro por defecto de Visual
+   Studio Code. El acento sigue siendo el naranja del módulo (barra de estado,
+   pestaña activa, botón Ejecutar). */
+:root {
+  --fondo: #181818;
+  --fondo-vista: #1f1f1f;
+  --borde: #2b2b2b;
+  --texto: #cccccc;
+  --texto-suave: #9d9d9d;
+  --error: #f14c4c;
+  --error-suave: rgba(241, 76, 76, .16);
+  --aviso: #cca700;
+  --bien: #89d185;
+  --acento-suave: rgba(211, 84, 0, .22);
+  --mono: Consolas, "Cascadia Code", "DejaVu Sans Mono", "Courier New", monospace;
+  color-scheme: dark;
+}
+.barra-menu { background: #181818; border-bottom-color: var(--borde); }
+.marca { color: #e0e0e0; }
+.barra-herramientas { background: #1f1f1f; border-bottom-color: var(--borde); }
+.btn { color: #cccccc; background: #313131; border-color: #3c3c3c; border-radius: 4px; }
+.btn:hover:not(:disabled) { background: #3c3c3c; border-color: var(--acento); }
+.btn-run { background: var(--acento); border-color: var(--acento); color: #fff; }
+.btn-run:hover:not(:disabled) { background: #e8630f; }
+.btn-run .icono-run { border-left-color: #fff; }
+.espacio { background: var(--fondo); }
+.vista { border-color: var(--borde); }
+.explorador { background: #181818; }
+.vista-titulo { background: #181818; color: var(--texto-suave); font-size: 11px; font-weight: 400;
+  letter-spacing: .04em; text-transform: uppercase; border-bottom-color: var(--borde); }
+.pestanas-editor { background: #1f1f1f; color: #ffffff; font-weight: 400; border-top: 1px solid var(--acento);
+  border-bottom-color: var(--borde); }
+.nodo-proyecto { color: #cccccc; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.archivo:hover { background: #2a2d2e; }
+.archivo.activo { background: #37373d; outline: 1px solid var(--acento); }
+.aviso-practica { background: #252526; color: var(--texto); }
+.pestanas { background: #181818; border-bottom-color: var(--borde); }
+.pestana { color: var(--texto-suave); border-right: 0; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.pestana.activa { background: transparent; color: #e7e7e7; border-top: 0; border-bottom: 1px solid var(--acento); font-weight: 400; }
+.contenido-panel, #panel-consola.activo { background: #181818; }
+.consola-cabecera { border-bottom-color: var(--borde); }
+.consola { color: #cccccc; }
+.btn-terminar:disabled::after { background: #555; }
+.salida-error { color: #f48771; }
+code { background: #2b2b2b; }
+th { background: #252526; color: var(--texto-suave); }
+th, td { border-bottom-color: var(--borde); }
+.tabla-problemas tr:hover td { background: #2a2d2e; }
+.lista-comprobaciones li { border-bottom-color: var(--borde); }
+.lista-comprobaciones li::before { background: #555; }
+.detalle-comprobacion { color: #b0b0b0; }
+.barra-estado { background: var(--acento); color: #ffffff; border-top: 0; }
+.diag-cabecera select, .diag-cabecera input { background: #313131; color: var(--texto); border: 1px solid #3c3c3c; }
+
+/* Editor: colores de Python del tema Dark+ */
+.cm-s-vscode.CodeMirror { background: #1f1f1f; color: #cccccc; }
+.cm-s-vscode .CodeMirror-gutters { background: #1f1f1f; border-right: 0; }
+.cm-s-vscode .CodeMirror-linenumber { color: #6e7681; }
+.cm-s-vscode .CodeMirror-activeline-background { background: #282828; }
+.cm-s-vscode .CodeMirror-activeline .CodeMirror-linenumber { color: #cccccc; }
+.cm-s-vscode .CodeMirror-cursor { border-left: 2px solid #aeafad; }
+.cm-s-vscode div.CodeMirror-selected,
+.cm-s-vscode.CodeMirror-focused div.CodeMirror-selected { background: #264f78; }
+.cm-s-vscode .cm-matchhighlight { background: rgba(173, 214, 255, .15); }
+.cm-s-vscode .CodeMirror-matchingbracket { color: inherit !important; outline: 1px solid #888; }
+.cm-s-vscode span.cm-keyword { color: #c586c0; }
+.cm-s-vscode span.cm-def { color: #dcdcaa; }
+.cm-s-vscode span.cm-builtin { color: #dcdcaa; }
+.cm-s-vscode span.cm-variable { color: #9cdcfe; }
+.cm-s-vscode span.cm-variable-2 { color: #9cdcfe; }
+.cm-s-vscode span.cm-property { color: #dcdcaa; }
+.cm-s-vscode span.cm-string { color: #ce9178; }
+.cm-s-vscode span.cm-string-2 { color: #d16969; }
+.cm-s-vscode span.cm-comment { color: #6a9955; }
+.cm-s-vscode span.cm-number { color: #b5cea8; }
+.cm-s-vscode span.cm-operator { color: #d4d4d4; }
+.cm-s-vscode span.cm-meta { color: #dcdcaa; }
+.cm-s-vscode span.cm-atom { color: #569cd6; }
+.cm-s-vscode .linea-error { background: var(--error-suave); }
+.cm-s-vscode .marca-error { color: var(--error); }
